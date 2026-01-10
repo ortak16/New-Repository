@@ -92,5 +92,12 @@ if not st.session_state.messages:
     st.info("Merhaba! Size nasıl yardımcı olabilirim?")
     if st.button("📑 Ders Açma İşlemleri Hakkında Bilgi"):
         st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
-        st.rerun()
+      #  st.rerun()
 
+if response_text:
+        with st.chat_message("assistant"):
+            st.write(response_text)
+        st.session_state.messages.append({"role": "assistant", "content": response_text})
+    else:
+        # Uzun hata mesajı yerine kısa uyarı
+        st.error("⚠️ Sistem şu an çok yoğun. Lütfen kısa bir süre sonra tekrar deneyiniz.")
