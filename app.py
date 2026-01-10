@@ -50,7 +50,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# --- SOHBET MANTIĞI ---
+# --- SOHBET MANTIĞI (GÜNCELLENMİŞ VERSİYON) ---
 if prompt := st.chat_input("Sorunuzu buraya yazın..."):
     if not client:
         st.error("API anahtarı olmadığı için işlem yapılamıyor.")
@@ -60,10 +60,9 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
     with st.chat_message("user"):
         st.write(prompt)
 
-    # Yeni kütüphane model isimleri (genelde 'models/' öneki olmadan çalışır ama ikisi de olur)
+    # Yeni kütüphane için en kararlı modeller
     denenecek_modeller = [
         'gemini-1.5-flash',
-        'gemini-2.0-flash-exp', # Varsa yeni hızlı model
         'gemini-1.5-pro'
     ]
     
@@ -71,24 +70,24 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
     success = False
 
     with st.spinner("Yanıt üretiliyor..."):
+        # Bağlamı kısaltıyoruz
+        limited_context = context[:20000] if context else "Bağlam yok."
+        
         for m_name in denenecek_modeller:
             try:
-                # Bağlamı kısaltıyoruz (Token limitini aşmamak için)
-                limited_context = context[:20000] if context else "Bağlam yok."
-                
-                # Yeni SDK Kullanımı: client.models.generate_content
+                # Modeli çağırmayı dene
                 response = client.models.generate_content(
                     model=m_name,
-                    contents=f"Aşağıdaki metne göre cevapla.\n\nBağlam: {limited_context}\n\nSoru: {prompt}"
+                    contents=f"Bağlam: {limited_context}\n\nSoru: {prompt}"
                 )
                 
                 if response.text:
                     response_text = response.text
                     success = True
-                    break # Başarılı olursa döngüden çık
+                    break 
             except Exception as e:
-                # Hata alırsak diğer modele geç, loglara yaz
-                print(f"Model {m_name} hata verdi: {e}")
+                # !!! İŞTE BURASI HATAYI EKRANA BASACAK !!!
+                st.error(f"Model ({m_name}) Hatası: {e}")
                 continue
 
     if success:
@@ -96,4 +95,5 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
             st.write(response_text)
         st.session_state.messages.append({"role": "assistant", "content": response_text})
     else:
-        st.error("Üzgünüm, şu an modeller yanıt veremiyor veya kota dolmuş olabilir. API Key'inizi ve kotanızı kontrol edin.")
+        st.warning("Tüm modeller denendi ancak hata alındı. Yukarıdaki kırmızı hata mesajlarını okuyun.")
+
