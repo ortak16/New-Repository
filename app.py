@@ -94,10 +94,3 @@ if not st.session_state.messages:
         st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
       #  st.rerun()
 
-if response_text:
-        with st.chat_message("assistant"):
-            st.write(response_text)
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
-    else:
-        # Uzun hata mesajı yerine kısa uyarı
-        st.error("⚠️ Sistem şu an çok yoğun. Lütfen kısa bir süre sonra tekrar deneyiniz.")
