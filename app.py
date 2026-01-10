@@ -1,49 +1,46 @@
 import streamlit as st
 import google.generativeai as genai
 
-st.set_page_config(page_title="Hata Ayıklama", layout="centered")
-st.title("🔍 Hata Tespit Ekranı")
+st.set_page_config(page_title="Model Dedektifi")
+st.title("🕵️ Model Bulucu")
 
-# 1. ADIM: API Anahtarı Kontrolü
-st.subheader("1. API Anahtarı Kontrolü")
 try:
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
-        # Güvenlik için sadece ilk 4 ve son 4 karakteri gösterelim
-        visible_key = f"{api_key[:4]}...{api_key[-4:]}"
-        st.success(f"✅ API Anahtarı Algılandı: {visible_key}")
-        
-        # Yapılandırma
         genai.configure(api_key=api_key)
-    else:
-        st.error("❌ HATA: Streamlit Secrets içinde 'GOOGLE_API_KEY' bulunamadı!")
-        st.stop()
-except Exception as e:
-    st.error(f"❌ Anahtar okunurken hata: {e}")
-    st.stop()
-
-# 2. ADIM: Bağlantı Testi
-st.subheader("2. Google Sunucusuna Bağlantı Testi")
-try:
-    # En temel modeli deneyelim
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    
-    with st.spinner("Google'a 'Merhaba' deniliyor..."):
-        response = model.generate_content("Merhaba, bağlantı testi yapıyorum.")
         
-    if response and response.text:
-        st.success("✅ BAŞARILI! Model Cevap Verdi:")
-        st.info(response.text)
-    else:
-        st.warning("⚠️ Model boş cevap döndü.")
+        st.info(f"Anahtar ile bağlantı kuruldu. Kullanılabilir modeller aranıyor...")
+        
+        # Google'dan modelleri iste
+        available_models = []
+        for m in genai.list_models():
+            # Sadece içerik üretebilen (chat) modelleri al
+            if 'generateContent' in m.supported_generation_methods:
+                available_models.append(m.name)
+        
+        if available_models:
+            st.success(f"✅ Bulunan Modeller ({len(available_models)} adet):")
+            # Listeyi ekrana bas
+            st.json(available_models)
+            
+            st.write("---")
+            st.write("👇 **Çözüm:** Aşağıdaki test kutusuna listedeki isimlerden birini (örn: `models/gemini-pro`) yazıp deneyin.")
+            
+            selected_model = st.selectbox("Bir model seçip test et:", available_models)
+            
+            if st.button("Seçili Modeli Test Et"):
+                try:
+                    model = genai.GenerativeModel(selected_model)
+                    res = model.generate_content("Merhaba, çalışıyor musun?")
+                    st.success(f"Cevap: {res.text}")
+                except Exception as e:
+                    st.error(f"Hata: {e}")
 
+        else:
+            st.warning("⚠️ Bağlantı başarılı ama 'generateContent' destekleyen model bulunamadı.")
+            
+    else:
+        st.error("API Key bulunamadı.")
+        
 except Exception as e:
-    st.error("❌ KRİTİK HATA OLUŞTU:")
-    st.code(str(e), language="python")
-    
-    st.markdown("""
-    **Olası Sebepler:**
-    1. **403 Permission Denied:** API Anahtarı hatalı kopyalanmış (boşluk olabilir).
-    2. **404 Not Found:** Model ismi yanlış veya hesabınızda aktif değil.
-    3. **400 Invalid Argument:** API anahtarı yetkisi yok.
-    """)
+    st.error(f"Listeleme Hatası: {str(e)}")
