@@ -25,7 +25,7 @@ except Exception as e:
 if st.button("Test Mesajı Gönder"):
     try:
         # Daha güvenli olan 1.5-flash modelini deniyoruz
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-pro")
         
         with st.spinner("Google'a bağlanılıyor..."):
             response = model.generate_content("Merhaba, test yapıyorum.")
@@ -39,3 +39,4 @@ if st.button("Test Mesajı Gönder"):
     except Exception as e:
         st.error("💥 KRİTİK HATA OLUŞTU:")
         st.code(str(e)) # Hatayı tam olarak ekrana yazar
+
