@@ -55,7 +55,7 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
         st.markdown(prompt)
 
     # Gemini'ye PDF içeriğiyle birlikte soruyu gönder
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-pro')
     full_query = f"Bağlam: {context}\n\nSoru: {prompt}\n\nLütfen sadece yukarıdaki bağlama göre cevap ver."
     
     response = model.generate_content(full_query)
@@ -64,3 +64,4 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
         st.markdown(response.text)
 
     st.session_state.messages.append({"role": "assistant", "content": response.text})
+
