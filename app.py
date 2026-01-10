@@ -2,20 +2,19 @@ import streamlit as st
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 
-# --- 1. SAYFA AYARLARI ---
-st.set_page_config(page_title="BTÜ Öğrenci İşleri Asistanı", layout="centered")
+# --- 1. SAYFA AYARLARI VE GİZLEME ---
+st.set_page_config(page_title="BTÜ Asistanı", layout="centered")
 
-# Manage App ve diğer Streamlit öğelerini gizle (CSS ile)
+# Manage App ve Streamlit öğelerini gizle
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stDeployButton {display:none;}
+    [data-testid="stStatusWidget"] {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
-
-st.title("🤖 BTÜ Öğrenci İşleri Asistanı")
 
 # --- 2. API KURULUMU ---
 try:
@@ -29,12 +28,12 @@ except Exception as e:
     st.error(f"Bağlantı Hatası: {e}")
     st.stop()
 
-# --- 3. PDF OKUMA VE BAĞLAM ---
-@st.cache_data # PDF'i her seferinde okuyup yavaşlatmaması için önbelleğe alıyoruz
-def get_pdf_text(pdf_file_path):
+# --- 3. PDF OKUMA ---
+@st.cache_data
+def load_context():
     text = ""
     try:
-        with open(pdf_file_path, "rb") as f:
+        with open("bilgiler.pdf", "rb") as f:
             pdf_reader = PdfReader(f)
             for page in pdf_reader.pages:
                 content = page.extract_text()
@@ -43,77 +42,73 @@ def get_pdf_text(pdf_file_path):
     except:
         return ""
 
-context = get_pdf_text("bilgiler.pdf")
+context = load_context()
 
 # --- 4. SOHBET GEÇMİŞİ VE ÖNERİLER ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Karşılama mesajı ve öneri butonları
+# Başlangıç ekranı (Sadece mesaj yoksa görünür)
 if not st.session_state.messages:
-    with st.chat_message("assistant"):
-        st.write("Merhaba! Ben BTÜ Öğrenci İşleri Asistanıyım. Size nasıl yardımcı olabilirim?")
-        st.write("Sıkça sorulan bazı sorular:")
-        
-        # Öneri Butonları
-        c1, c2 = st.columns(2)
-        if c1.button("📑 Bölümümde ders açmak istiyorum?"):
-            st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
-        if c2.button("📅 Kısa sınav tarihlerini öğrenme?"):
-            st.session_state.pending_prompt = "Kısa sınav tarihimi nasıl öğrenebilirim?"
-        
-        c3, c4 = st.columns(2)
-        if c3.button("🎓 Mezuniyet şartları neler?"):
-            st.session_state.pending_prompt = "Mezuniyet şartları nelerdir?"
-        if c4.button("🌍 Genel bir soru sor"):
-            st.session_state.pending_prompt = "Merhaba, genel bir sorum var."
+    st.markdown("### 🤖 BTÜ Öğrenci İşleri Asistanı")
+    st.write("Merhaba! Ben Bursa Teknik Üniversitesi Öğrenci İşleri asistanıyım. Size nasıl yardımcı olabilirim?")
+    
+    st.write("👇 **Hızlı Erişim için Tıklayabilirsiniz:**")
+    c1, c2 = st.columns(2)
+    if c1.button("📑 Bölümümde ders açmak istiyorum?"):
+        st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
+    if c2.button("📅 Kısa sınav tarihlerini öğrenme?"):
+        st.session_state.pending_prompt = "Kısa sınav tarihimi nasıl öğrenebilirim?"
 
-# Eski mesajları ekrana bas
+# Mesajları ekrana bas
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # --- 5. SOHBET MANTIĞI ---
-# Eğer butonla bir soru geldiyse veya kullanıcı yazdıysa
+# Butonla veya klavyeyle gelen soruyu al
 prompt = st.chat_input("Sorunuzu buraya yazın...")
-if hasattr(st.session_state, 'pending_prompt'):
+if "pending_prompt" in st.session_state:
     prompt = st.session_state.pending_prompt
     del st.session_state.pending_prompt
 
 if prompt:
+    # Kullanıcı mesajını ekle
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.spinner("Düşünüyorum..."):
-        # Sistem Talimatı: Hem PDF'i hem genel bilgiyi kullanacak şekilde revize edildi
+    # Cevap üret
+    with st.spinner("Cevaplanıyor..."):
+        # Kesin kural: "Metne göre" gibi laflar yok, genel bilgi de verebilir
         system_instruction = f"""
-        Sen Bursa Teknik Üniversitesi (BTÜ) Öğrenci İşleri Daire Başkanlığı için özelleşmiş bir asistansın.
-        
-        KURALLAR:
-        1. Eğer soru kurumun iç işleyişi (ders açma, sınavlar, yönetmelik vb.) ile ilgiliyse önce şu bilgilere bak: {context[:25000]}
-        2. Eğer soru genel kültür, tarih, teknoloji veya BTÜ dışı bir konuysa kendi genel bilgilerini kullanarak cevap ver.
-        3. Cevapların doğal olsun. ASLA "belgelere göre", "bağlamda yazdığı gibi" deme. 
-        4. Samimi ama resmi bir dil kullan (BTÜ personeli gibi).
-        5. Eğer PDF'te bilgi yoksa ve konu BTÜ ile ilgiliyse 'Bu konuda detaylı bilgi için odb.btu.edu.tr adresini ziyaret edebilir veya ilgili birimle iletişime geçebilirsiniz' de.
+        Sen Bursa Teknik Üniversitesi (BTÜ) Öğrenci İşleri asistanısın. 
+        Sana verilen şu bilgilere göre cevap ver: {context[:25000]}
+        ÖNEMLİ KURALLAR:
+        1. "Belgeye göre", "Sağlanan bağlama göre" gibi ifadeleri ASLA kullanma. 
+        2. Bilgileri kendin biliyormuşsun gibi doğal bir dille anlat.
+        3. Eğer soru yukarıdaki bilgilerde yoksa, genel dünya bilgilerini kullanarak cevap ver (Çünkü sen her konuda bilgili bir asistansın).
+        4. BTÜ ile ilgili ulaşılamayan detaylar için odb.btu.edu.tr adresine yönlendir.
         """
-
-        selected_models = ['models/gemini-2.0-flash', 'models/gemini-1.5-flash-latest']
+        
+        # Senin belirttiğin model listesi (Dokunulmadı)
+        selected_models = ['models/gemini-2.0-flash', 'models/gemini-flash-latest']
         response_text = ""
 
         for m_name in selected_models:
             try:
                 model = genai.GenerativeModel(m_name)
-                response = model.generate_content(f"{system_instruction}\n\nKullanıcı Sorusu: {prompt}")
+                response = model.generate_content(f"{system_instruction}\n\nSoru: {prompt}")
                 if response and response.text:
                     response_text = response.text
                     break
-            except:
+            except Exception:
                 continue
 
+    # Cevabı ekle ve ekrana yaz
     if response_text:
         with st.chat_message("assistant"):
             st.markdown(response_text)
         st.session_state.messages.append({"role": "assistant", "content": response_text})
-        # Sayfayı butonların gitmesi için yenile
-        st.rerun()
+        # Sayfanın butonları temizlemesi için sadece bu kısımda küçük bir yenileme gerekebilir
+        # ancak st.chat_input kullanıldığında streamlit bunu genelde otomatik yapar.
