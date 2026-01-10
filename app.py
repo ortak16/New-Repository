@@ -8,6 +8,36 @@ st.set_page_config(page_title="ODB Asistanı", layout="centered")
 # --- MODERN TASARIM CSS ---
 st.markdown("""
     <style>
+    /* 1. Üst menü, footer ve Streamlit ikonlarını gizle */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* 2. 'Built with Streamlit' ve alt barı tamamen yok et */
+    div[data-testid="stStatusWidget"] {display: none;}
+    .reportview-container .main footer {visibility: hidden;}
+    
+    /* 3. Tam ekran (Fullscreen) ve 'Deploy' butonlarını gizle */
+    button[title="View fullscreen"] {display: none;}
+    .stDeployButton {display:none;}
+    
+    /* 4. En alttaki küçük boşluğu ve Streamlit linkini kaldır */
+    div[class^="StyledLinkIconContainer"] {display: none;}
+    [data-testid="stDecoration"] {display: none;}
+
+    /* Modern Balon Tasarımları (Öncekiyle aynı kalsın) */
+    [data-testid="stChatMessage"] {
+        border-radius: 20px;
+        margin-bottom: 10px;
+    }
+    [data-testid="stChatMessage"]:nth-child(even) {
+        background-color: #e3f2fd; /* Kullanıcı */
+    }
+    [data-testid="stChatMessage"]:nth-child(odd) {
+        background-color: #f1f1f1; /* Asistan */
+    }
+
+    
     /* Ana Arkaplan */
     .stApp { background-color: #f8f9fa; }
     
@@ -151,4 +181,5 @@ if prompt:
         st.session_state.messages.append({"role": "assistant", "content": response_text})
         # Sayfanın butonları temizlemesi için sadece bu kısımda küçük bir yenileme gerekebilir
         # ancak st.chat_input kullanıldığında streamlit bunu genelde otomatik yapar.
+
 
