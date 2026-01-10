@@ -3,7 +3,46 @@ import google.generativeai as genai
 from PyPDF2 import PdfReader
 
 # --- 1. SAYFA AYARLARI VE GİZLEME ---
-st.set_page_config(page_title="BTÜ Asistanı", layout="centered")
+st.set_page_config(page_title="ODB Asistanı", layout="centered")
+
+# --- MODERN TASARIM CSS ---
+st.markdown("""
+    <style>
+    /* Ana Arkaplan */
+    .stApp { background-color: #f8f9fa; }
+    
+    /* Mesaj Balonlarını Modernleştir */
+    [data-testid="stChatMessage"] {
+        border-radius: 15px;
+        padding: 15px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    /* Kullanıcı Mesajı (Sağ tarafa yakın ve farklı renk) */
+    [data-testid="stChatMessage"]:nth-child(even) {
+        background-color: #e3f2fd;
+        border-left: 5px solid #1976d2;
+    }
+
+    /* Asistan Mesajı (Sol tarafta ve BTÜ renklerine yakın) */
+    [data-testid="stChatMessage"]:nth-child(odd) {
+        background-color: #ffffff;
+        border-left: 5px solid #d32f2f;
+    }
+
+    /* Avatar Simgelerini Yuvarla */
+    [data-testid="stChatMessageAvatarUser"], [data-testid="stChatMessageAvatarAssistant"] {
+        border-radius: 50%;
+    }
+
+    /* Gizlemeler */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    </style>
+    """, unsafe_allow_html=True)
 
 # Manage App ve Streamlit öğelerini gizle
 st.markdown("""
@@ -112,3 +151,4 @@ if prompt:
         st.session_state.messages.append({"role": "assistant", "content": response_text})
         # Sayfanın butonları temizlemesi için sadece bu kısımda küçük bir yenileme gerekebilir
         # ancak st.chat_input kullanıldığında streamlit bunu genelde otomatik yapar.
+
