@@ -2,140 +2,117 @@ import streamlit as st
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 
-# --- 1. SAYFA AYARLARI VE GİZLEME ---
-st.set_page_config(page_title="ODB Asistanı", layout="centered")
+# --- SAYFA AYARLARI ---
+st.set_page_config(page_title="BTÜ Asistanı", layout="centered")
 
-# --- MODERN TASARIM CSS ---
+# --- BTÜ LOGOSU VE MODERN TASARIM CSS ---
 st.markdown("""
     <style>
-    /* 1. Üst menü, footer ve Streamlit ikonlarını gizle */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    /* 1. Streamlit Öğelerini Gizle */
+    header, footer, .stDeployButton, [data-testid="stStatusWidget"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    button[title="View fullscreen"] { display: none !important; }
     
-    /* 2. 'Built with Streamlit' ve alt barı tamamen yok et */
-    div[data-testid="stStatusWidget"] {display: none;}
-    .reportview-container .main footer {visibility: hidden;}
-    
-    /* 3. Tam ekran (Fullscreen) ve 'Deploy' butonlarını gizle */
-    button[title="View fullscreen"] {display: none;}
-    .stDeployButton {display:none;}
-    
-    /* 4. En alttaki küçük boşluğu ve Streamlit linkini kaldır */
-    div[class^="StyledLinkIconContainer"] {display: none;}
-    [data-testid="stDecoration"] {display: none;}
+    /* 2. Arkaplan ve Sayfa Yapısı */
+    .stApp { background-color: #ffffff; }
+    .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
 
-   
+    /* 3. Modern Balon Tasarımı */
+    [data-testid="stChatMessage"] {
+        border-radius: 20px;
+        margin-bottom: 15px;
+        padding: 1rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border: 1px solid #f0f0f0;
+    }
+    
+    /* Kullanıcı Balonu (Mavi) */
+    [data-testid="stChatMessage"]:nth-child(even) {
+        background-color: #f0f7ff;
+        border-right: 4px solid #007bff;
+    }
+    
+    /* Asistan Balonu (BTÜ Beyaz-Kırmızı) */
+    [data-testid="stChatMessage"]:nth-child(odd) {
+        background-color: #ffffff;
+        border-left: 4px solid #d32f2f;
+    }
+
+    /* Görselleri Yuvarla */
+    [data-testid="stChatMessageAvatarAssistant"], [data-testid="stChatMessageAvatarUser"] {
+        border-radius: 50%;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# Manage App ve Streamlit öğelerini gizle
-st.markdown("""
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stDeployButton {display:none;}
-    [data-testid="stStatusWidget"] {visibility: hidden;}
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 2. API KURULUMU ---
+# --- API KURULUMU ---
 try:
-    if "GOOGLE_API_KEY" in st.secrets:
-        api_key = st.secrets["GOOGLE_API_KEY"]
-        genai.configure(api_key=api_key)
-    else:
-        st.error("⚠️ API Anahtarı bulunamadı!")
-        st.stop()
-except Exception as e:
-    st.error(f"Bağlantı Hatası: {e}")
-    st.stop()
+    api_key = st.secrets["GOOGLE_API_KEY"]
+    genai.configure(api_key=api_key)
+except:
+    st.error("API Anahtarı eksik!")
 
-# --- 3. PDF OKUMA ---
+# --- PDF OKUMA ---
 @st.cache_data
-def load_context():
+def load_pdf():
     text = ""
     try:
         with open("bilgiler.pdf", "rb") as f:
             pdf_reader = PdfReader(f)
             for page in pdf_reader.pages:
-                content = page.extract_text()
-                if content: text += content
+                text += page.extract_text()
         return text
-    except:
-        return ""
+    except: return ""
 
-context = load_context()
+context = load_pdf()
 
-# --- 4. SOHBET GEÇMİŞİ VE ÖNERİLER ---
+# --- SOHBET GEÇMİŞİ VE ÖNERİLER ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Başlangıç ekranı (Sadece mesaj yoksa görünür)
+# Karşılama Ekranı
 if not st.session_state.messages:
     st.markdown("### 🤖 BTÜ Öğrenci İşleri Asistanı")
-    st.write("Merhaba! Ben Bursa Teknik Üniversitesi Öğrenci İşleri asistanıyım. Size nasıl yardımcı olabilirim?")
+    st.write("Merhaba! Ben Bursa Teknik Üniversitesi asistanıyım. Size nasıl yardımcı olabilirim?")
     
-    st.write("👇 **Hızlı Erişim için Tıklayabilirsiniz:**")
     c1, c2 = st.columns(2)
-    if c1.button("📑 Bölümümde ders açmak istiyorum?"):
+    if c1.button("📑 Ders Açma İşlemleri"):
         st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
-    if c2.button("📅 Kısa sınav tarihlerini öğrenme?"):
+    if c2.button("📅 Sınav Tarihleri"):
         st.session_state.pending_prompt = "Kısa sınav tarihimi nasıl öğrenebilirim?"
 
-# Mesajları ekrana bas
+# Mesajları Ekrana Bas (BTÜ LOGOSU BURADA)
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+    avatar_img = "https://btu.edu.tr/dosyalar/btu/dosyalar/BTU_Logo_Yatay_TR_Siyah(1).png" if message["role"] == "assistant" else "👤"
+    with st.chat_message(message["role"], avatar=avatar_img):
         st.markdown(message["content"])
 
-# --- 5. SOHBET MANTIĞI ---
-# Butonla veya klavyeyle gelen soruyu al
+# --- SORGULAMA ---
 prompt = st.chat_input("Sorunuzu buraya yazın...")
 if "pending_prompt" in st.session_state:
     prompt = st.session_state.pending_prompt
     del st.session_state.pending_prompt
 
 if prompt:
-    # Kullanıcı mesajını ekle
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
 
-    # Cevap üret
     with st.spinner("Cevaplanıyor..."):
-        # Kesin kural: "Metne göre" gibi laflar yok, genel bilgi de verebilir
-        system_instruction = f"""
-        Sen Bursa Teknik Üniversitesi (BTÜ) Öğrenci İşleri asistanısın. 
-        Sana verilen şu bilgilere göre cevap ver: {context[:25000]}
-        ÖNEMLİ KURALLAR:
-        1. "Belgeye göre", "Sağlanan bağlama göre" gibi ifadeleri ASLA kullanma. 
-        2. Bilgileri kendin biliyormuşsun gibi doğal bir dille anlat.
-        3. Eğer soru yukarıdaki bilgilerde yoksa, genel dünya bilgilerini kullanarak cevap ver (Çünkü sen her konuda bilgili bir asistansın).
-        4. BTÜ ile ilgili ulaşılamayan detaylar için odb.btu.edu.tr adresine yönlendir.
-        """
+        sys_instr = f"Sen BTÜ asistanısın. Şu bilgilere bak: {context[:25000]}. Bilgi yoksa genel dünya bilgini kullan. Doğal ol, 'metne göre' deme."
         
-        # Senin belirttiğin model listesi (Dokunulmadı)
+        # Senin çalışan model listen
         selected_models = ['models/gemini-2.0-flash', 'models/gemini-flash-latest']
-        response_text = ""
-
         for m_name in selected_models:
             try:
                 model = genai.GenerativeModel(m_name)
-                response = model.generate_content(f"{system_instruction}\n\nSoru: {prompt}")
-                if response and response.text:
-                    response_text = response.text
+                response = model.generate_content(f"{sys_instr}\n\nSoru: {prompt}")
+                if response.text:
+                    with st.chat_message("assistant", avatar="https://btu.edu.tr/dosyalar/btu/dosyalar/BTU_Logo_Yatay_TR_Siyah(1).png"):
+                        st.markdown(response.text)
+                    st.session_state.messages.append({"role": "assistant", "content": response.text})
+                    st.rerun()
                     break
-            except Exception:
-                continue
-
-    # Cevabı ekle ve ekrana yaz
-    if response_text:
-        with st.chat_message("assistant"):
-            st.markdown(response_text)
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
-        # Sayfanın butonları temizlemesi için sadece bu kısımda küçük bir yenileme gerekebilir
-        # ancak st.chat_input kullanıldığında streamlit bunu genelde otomatik yapar.
-
-
-
+            except: continue
