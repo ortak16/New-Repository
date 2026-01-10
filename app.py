@@ -86,10 +86,12 @@ if prompt:
                 st.session_state.messages.append({"role": "assistant", "content": answer})
             else:
                 st.error("Model cevap üretemedi.")
-        except Exception as e:
-            st.error(f"Hata oluştu: {e}")
+        except Exception:
+    st.error("⚠️ Sistem şu anda yoğun. Lütfen daha sonra tekrar deneyin.")
+
 
 if not st.session_state.messages:
     st.info("Merhaba! Size nasıl yardımcı olabilirim?")
     if st.button("📑 Ders Açma İşlemleri Hakkında Bilgi"):
         st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
+
