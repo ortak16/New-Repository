@@ -59,9 +59,9 @@ else:
 # MODEL YÜKLEME (GÜNCELLENDİ - Listede var olan model seçildi)
 @st.cache_resource
 def load_model():
-    # Model ismi listenizde olan 'gemini-2.0-flash' olarak ayarlandı
+    # 'gemini-flash-latest' sizi otomatik olarak en güncel ve ücretsiz çalışan modele (genellikle 1.5) yönlendirir.
     return genai.GenerativeModel(
-        model_name="gemini-2.0-flash", 
+        model_name="gemini-flash-latest", 
         system_instruction=system_instruction
     )
 
@@ -124,3 +124,4 @@ if not st.session_state.messages:
         if st.button("📅 Akademik Takvim"):
             st.session_state.pending_prompt = "Akademik takvim hakkında bilgi ver."
             st.rerun()
+
