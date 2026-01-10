@@ -47,7 +47,7 @@ if not context:
 
 @st.cache_resource
 def load_model():
-    return genai.GenerativeModel("models/gemini-1.5-flash")
+    return genai.GenerativeModel("models/gemini-2.0-flash")
 
 model = load_model()
 
@@ -94,6 +94,7 @@ if not st.session_state.messages:
     st.info("Merhaba! Size nasıl yardımcı olabilirim?")
     if st.button("📑 Ders Açma İşlemleri Hakkında Bilgi"):
         st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
+
 
 
 
