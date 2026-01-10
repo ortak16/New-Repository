@@ -2,17 +2,15 @@ import streamlit as st
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 
-# --- 1. TASARIM VE GİZLEME ---
+# --- 1. TASARIM VE GİZLEME (Dokunulmadı) ---
 st.set_page_config(page_title="BTÜ Asistanı", layout="centered")
 
 st.markdown("""
     <style>
-    /* Streamlit yazılarını ve butonlarını gizle */
     header, footer, .stDeployButton, [data-testid="stStatusWidget"], button[title="View fullscreen"] {
         display: none !important;
         visibility: hidden !important;
     }
-    /* Modern Balonlar */
     [data-testid="stChatMessage"] { border-radius: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
     [data-testid="stChatMessage"]:nth-child(odd) { background-color: #ffffff; border-left: 5px solid #d32f2f; }
     [data-testid="stChatMessage"]:nth-child(even) { background-color: #f0f7ff; border-right: 5px solid #007bff; }
@@ -36,40 +34,46 @@ def load_pdf():
         return text
     except: return ""
 
-context = load_pdf()[:12000] # Kota dostu uzunluk
-btu_logo = "https://depo.btu.edu.tr/img/sayfa//1691132554_284ffd9ee8d6a4286478.png"
+context = load_pdf()[:8000]
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Mesaj Geçmişini Göster
 for message in st.session_state.messages:
-    avatar = btu_logo if message["role"] == "assistant" else "👤"
-    with st.chat_message(message["role"], avatar=avatar):
+    with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 3. SORGULAMA VE KISA HATA MESAJI ---
+# --- 3. SORGULAMA (İstediğin Model Listesi Eklendi) ---
 if prompt := st.chat_input("Sorunuzu buraya yazın..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
+    with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.spinner("Yanıtlanıyor..."):
-        try:
-            # Model ismine dokunulmadı
-            model = genai.GenerativeModel('models/gemini-2.0-flash')
-            
-            sys_instr = f"Sen BTÜ asistanısın. Şu bilgilere göre cevap ver: {context}. Doğal ol."
-            response = model.generate_content(f"{sys_instr}\n\nSoru: {prompt}")
-            
-            if response and response.text:
-                with st.chat_message("assistant", avatar=btu_logo):
-                    st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
-            else:
-                st.warning("Şu an yanıt veremiyorum, lütfen biraz sonra tekrar deneyiniz.")
+        # İSTEDİĞİN MODEL LİSTESİ
+        selected_models = ['models/gemini-2.0-flash', 'models/gemini-flash-latest']
+        
+        response_text = ""
+        success = False
 
-        except Exception as e:
-            # BURASI ÖNEMLİ: Hata ne olursa olsun kullanıcıya sadece bunu gösteriyoruz
-            st.error("⚠️ Sistem şu an çok yoğun. Lütfen kısa bir süre sonra tekrar deneyiniz.")
-            # Teknik hatayı sadece loglarda görmek istersen: print(e)
+        # Modelleri sırayla dene
+        for m_name in selected_models:
+            try:
+                model = genai.GenerativeModel(m_name)
+                sys_instr = f"Sen BTÜ asistanısın. Bilgi: {context}. Doğal ol."
+                response = model.generate_content(f"{sys_instr}\n\nSoru: {prompt}")
+                
+                if response and response.text:
+                    response_text = response.text
+                    success = True
+                    break # Başarılı olursa döngüden çık
+            except Exception:
+                continue # Hata alırsan listedeki bir sonraki modele geç
+
+        if success:
+            with st.chat_message("assistant"):
+                st.markdown(response_text)
+            st.session_state.messages.append({"role": "assistant", "content": response_text})
+        else:
+            # Tüm modeller kota/hata verirse gösterilecek kısa mesaj
+            st.error("⚠️ Sistem şu an çok yoğun. Lütfen 1-2 dakika sonra tekrar deneyiniz.")
