@@ -1,23 +1,23 @@
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 from PyPDF2 import PdfReader
 
-# Sayfa ayarları en başta olmalı
+# Sayfa ayarları
 st.set_page_config(page_title="Destek Asistanı", layout="centered")
+st.title("Bilgi Asistanı")
 
-# --- API ANAHTARI VE İSTEMCİ KURULUMU (YENİ SİSTEM) ---
-client = None
+# --- 1. API ANAHTARI AYARLAMA (KLASİK YÖNTEM) ---
 try:
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
-        # Yeni kütüphanede configure yerine Client oluşturulur
-        client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
     else:
-        st.error("API Anahtarı bulunamadı! Lütfen Streamlit Secrets kısmına 'GOOGLE_API_KEY' ekleyin.")
+        st.error("API Anahtarı bulunamadı! Lütfen Streamlit Secrets kısmına ekleyin.")
+        st.stop()
 except Exception as e:
     st.error(f"Bağlantı Hatası: {str(e)}")
 
-# --- FONKSİYONLAR ---
+# --- 2. FONKSİYONLAR ---
 def get_pdf_text(pdf_file):
     text = ""
     try:
@@ -29,20 +29,15 @@ def get_pdf_text(pdf_file):
     except Exception as e:
         return f"PDF Okuma Hatası: {str(e)}"
 
-# --- ARAYÜZ ---
-st.title("Bilgi Asistanı")
-st.warning("Lütfen kişisel verilerinizi paylaşmayın. Veriler işlenmektedir.")
-
-# PDF Yükleme / Okuma
+# --- 3. PDF YÜKLEME ---
 context = ""
 try:
-    # Eğer dosya yüklü değilse hata vermemesi için kontrol
     with open("bilgiler.pdf", "rb") as f:
         context = get_pdf_text(f)
 except FileNotFoundError:
-    st.error("Hata: 'bilgiler.pdf' dosyası ana dizinde bulunamadı! Dosyayı yüklediğinizden emin olun.")
+    st.warning("⚠️ 'bilgiler.pdf' dosyası bulunamadı! Bot sadece genel bilgiyle cevap verecek.")
 
-# Mesaj Geçmişi
+# --- 4. SOHBET GEÇMİŞİ ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -50,44 +45,41 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# --- SOHBET MANTIĞI (GÜNCELLENMİŞ VERSİYON) ---
+# --- 5. SOHBET MANTIĞI ---
 if prompt := st.chat_input("Sorunuzu buraya yazın..."):
-    if not client:
-        st.error("API anahtarı olmadığı için işlem yapılamıyor.")
-        st.stop()
-
+    # Kullanıcı mesajını ekle
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
 
-    # Yeni kütüphane için en kararlı modeller
-    denenecek_modeller = [
-        'gemini-1.5-flash',
-        'gemini-1.5-pro'
-    ]
-    
+    # Yanıt üret
     response_text = ""
     success = False
+    
+    # Kararlı modeller listesi
+    denenecek_modeller = [
+        'gemini-1.5-flash',
+        'gemini-pro'
+    ]
 
-    with st.spinner("Yanıt üretiliyor..."):
-        # Bağlamı kısaltıyoruz
-        limited_context = context[:20000] if context else "Bağlam yok."
+    with st.spinner("Düşünüyor..."):
+        # PDF içeriğini kısalt (Hata riskini azaltır)
+        limited_context = context[:15000] if context else ""
         
+        full_prompt = f"Aşağıdaki bilgilere göre cevapla.\n\nBağlam: {limited_context}\n\nSoru: {prompt}"
+
         for m_name in denenecek_modeller:
             try:
-                # Modeli çağırmayı dene
-                response = client.models.generate_content(
-                    model=m_name,
-                    contents=f"Bağlam: {limited_context}\n\nSoru: {prompt}"
-                )
+                # Klasik Kütüphane Çağrısı
+                model = genai.GenerativeModel(m_name)
+                response = model.generate_content(full_prompt)
                 
-                if response.text:
+                if response and response.text:
                     response_text = response.text
                     success = True
-                    break 
+                    break
             except Exception as e:
-                # !!! İŞTE BURASI HATAYI EKRANA BASACAK !!!
-                st.error(f"Model ({m_name}) Hatası: {e}")
+                print(f"Model {m_name} hatası: {e}")
                 continue
 
     if success:
@@ -95,5 +87,4 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
             st.write(response_text)
         st.session_state.messages.append({"role": "assistant", "content": response_text})
     else:
-        st.warning("Tüm modeller denendi ancak hata alındı. Yukarıdaki kırmızı hata mesajlarını okuyun.")
-
+        st.error("Üzgünüm, şu an bağlantı kurulamadı. Lütfen API anahtarınızın kotasını kontrol edin.")
