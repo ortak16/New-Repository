@@ -8,45 +8,32 @@ st.set_page_config(page_title="BTÜ Asistanı", layout="centered")
 # --- BTÜ LOGOSU VE MODERN TASARIM CSS ---
 st.markdown("""
     <style>
-    /* 1. Streamlit Öğelerini Gizle */
-    header, footer, .stDeployButton, [data-testid="stStatusWidget"] {
+    /* Streamlit öğelerini içeriden gizle */
+    header, footer, .stDeployButton, [data-testid="stStatusWidget"], button[title="View fullscreen"] {
         display: none !important;
         visibility: hidden !important;
     }
-    button[title="View fullscreen"] { display: none !important; }
-    
-    /* 2. Arkaplan ve Sayfa Yapısı */
-    .stApp { background-color: #ffffff; }
-    .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
 
-    /* 3. Modern Balon Tasarımı */
+    /* Modern Balonlar */
     [data-testid="stChatMessage"] {
         border-radius: 20px;
         margin-bottom: 15px;
-        padding: 1rem;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        border: 1px solid #f0f0f0;
     }
     
-    /* Kullanıcı Balonu (Mavi) */
-    [data-testid="stChatMessage"]:nth-child(even) {
-        background-color: #f0f7ff;
-        border-right: 4px solid #007bff;
-    }
-    
-    /* Asistan Balonu (BTÜ Beyaz-Kırmızı) */
+    /* Asistan Balonu (BTÜ Kırmızısı Detay) */
     [data-testid="stChatMessage"]:nth-child(odd) {
         background-color: #ffffff;
-        border-left: 4px solid #d32f2f;
+        border-left: 5px solid #d32f2f;
     }
 
-    /* Görselleri Yuvarla */
-    [data-testid="stChatMessageAvatarAssistant"], [data-testid="stChatMessageAvatarUser"] {
-        border-radius: 50%;
+    /* Kullanıcı Balonu */
+    [data-testid="stChatMessage"]:nth-child(even) {
+        background-color: #f0f7ff;
+        border-right: 5px solid #007bff;
     }
     </style>
     """, unsafe_allow_html=True)
-
 # --- API KURULUMU ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -116,3 +103,4 @@ if prompt:
                     st.rerun()
                     break
             except: continue
+
