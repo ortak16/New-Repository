@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 from PyPDF2 import PdfReader
 
 try:
@@ -75,3 +75,4 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
         st.session_state.messages.append({"role": "assistant", "content": response_text})
     else:
         st.error("Şu an modellerimiz cevap veremiyor. Lütfen Google AI Studio'dan yeni bir API KEY alıp denemeyi unutmayın.")
+
