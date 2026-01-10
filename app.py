@@ -87,11 +87,12 @@ if prompt:
             else:
                 st.error("Model cevap üretemedi.")
         except Exception:
-    st.error("⚠️ Sistem şu anda yoğun. Lütfen daha sonra tekrar deneyin.")
+            st.error("⚠️ Sistem şu anda yoğun. Lütfen daha sonra tekrar deneyin.")
 
 
 if not st.session_state.messages:
     st.info("Merhaba! Size nasıl yardımcı olabilirim?")
     if st.button("📑 Ders Açma İşlemleri Hakkında Bilgi"):
         st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
+
 
