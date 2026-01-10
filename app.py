@@ -2,31 +2,32 @@ import streamlit as st
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 
-# --- 1. SAYFA AYARLARI VE CSS (Built with Streamlit ve Fullscreen Gizleme) ---
+# --- SAYFA AYARLARI ---
 st.set_page_config(page_title="BTÜ Asistanı", layout="centered")
 
+# --- BTÜ LOGOSU VE MODERN TASARIM CSS ---
 st.markdown("""
     <style>
-    /* Streamlit yazılarını ve butonlarını tamamen gizle */
+    /* Streamlit öğelerini içeriden gizle */
     header, footer, .stDeployButton, [data-testid="stStatusWidget"], button[title="View fullscreen"] {
         display: none !important;
         visibility: hidden !important;
     }
-    
-    /* Modern Balon Tasarımı */
+
+    /* Modern Balonlar */
     [data-testid="stChatMessage"] {
         border-radius: 20px;
         margin-bottom: 15px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
     
-    /* Asistan Balonu (Sol) */
+    /* Asistan Balonu (BTÜ Kırmızısı Detay) */
     [data-testid="stChatMessage"]:nth-child(odd) {
         background-color: #ffffff;
         border-left: 5px solid #d32f2f;
     }
-    
-    /* Kullanıcı Balonu (Sağ) */
+
+    /* Kullanıcı Balonu */
     [data-testid="stChatMessage"]:nth-child(even) {
         background-color: #f0f7ff;
         border-right: 5px solid #007bff;
@@ -34,75 +35,72 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. API VE PDF KURULUMU ---
+# --- API KURULUMU ---
 try:
-    if "GOOGLE_API_KEY" in st.secrets:
-        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-    else:
-        st.error("API Anahtarı bulunamadı!")
-except Exception as e:
-    st.error(f"Bağlantı Hatası: {e}")
+    api_key = st.secrets["GOOGLE_API_KEY"]
+    genai.configure(api_key=api_key)
+except:
+    st.error("API Anahtarı eksik!")
 
+# --- PDF OKUMA ---
 @st.cache_data
-def get_pdf_text():
+def load_pdf():
     text = ""
     try:
         with open("bilgiler.pdf", "rb") as f:
             pdf_reader = PdfReader(f)
             for page in pdf_reader.pages:
-                content = page.extract_text()
-                if content: text += content
+                text += page.extract_text()
         return text
-    except:
-        return ""
+    except: return ""
 
-context = get_pdf_text()
+context = load_pdf()
 
-# --- 3. SOHBET GEÇMİŞİ ---
+# --- SOHBET GEÇMİŞİ VE ÖNERİLER ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
-
-# --- 4. SORGULAMA MANTIĞI ---
-if prompt := st.chat_input("Sorunuzu buraya yazın..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.write(prompt)
-
-    response_text = ""
+# Karşılama Ekranı
+if not st.session_state.messages:
+    st.markdown("### 🤖 BTÜ Öğrenci İşleri Asistanı")
+    st.write("Merhaba! Ben Bursa Teknik Üniversitesi asistanıyım. Size nasıl yardımcı olabilirim?")
     
-    # SENİN İSTEDİĞİN MODEL LİSTESİ
-    selected_models = ['models/gemini-2.0-flash', 'models/gemini-flash-latest']
+    c1, c2 = st.columns(2)
+    if c1.button("📑 Ders Açma İşlemleri"):
+        st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
+    if c2.button("📅 Sınav Tarihleri"):
+        st.session_state.pending_prompt = "Kısa sınav tarihimi nasıl öğrenebilirim?"
 
-    with st.spinner("Yazıyor..."):
-        # Robotik ifadeleri engelleyen talimat
-        system_instruction = f"""
-        Sen yardımsever bir BTÜ asistansın.
-        Şu bilgilere dayanarak cevap ver: {context[:25000]}
-        ÖNEMLİ: "Sağlanan bağlama göre" gibi ifadeler kullanma. 
-        Doğrudan ve samimi cevap ver. Bilgi yoksa genel bilgini kullan.
-        """
+# Mesajları Ekrana Bas (BTÜ LOGOSU BURADA)
+for message in st.session_state.messages:
+    avatar_img = "https://btu.edu.tr/dosyalar/btu/dosyalar/BTU_Logo_Yatay_TR_Siyah(1).png" if message["role"] == "assistant" else "👤"
+    with st.chat_message(message["role"], avatar=avatar_img):
+        st.markdown(message["content"])
+
+# --- SORGULAMA ---
+prompt = st.chat_input("Sorunuzu buraya yazın...")
+if "pending_prompt" in st.session_state:
+    prompt = st.session_state.pending_prompt
+    del st.session_state.pending_prompt
+
+if prompt:
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(prompt)
+
+    with st.spinner("Cevaplanıyor..."):
+        sys_instr = f"Sen BTÜ asistanısın. Şu bilgilere bak: {context[:25000]}. Bilgi yoksa genel dünya bilgini kullan. Doğal ol, 'metne göre' deme."
         
-        # Modelleri sırayla dene
+        # Senin çalışan model listen
+        selected_models = ['models/gemini-2.0-flash', 'models/gemini-flash-latest']
         for m_name in selected_models:
             try:
                 model = genai.GenerativeModel(m_name)
-                response = model.generate_content(f"{system_instruction}\n\nSoru: {prompt}")
-                
-                if response and response.text:
-                    response_text = response.text
-                    break 
-            except Exception:
-                continue
-
-    # Sonuç Yazdırma ve Hata Maskeleme
-    if response_text:
-        with st.chat_message("assistant"):
-            st.write(response_text)
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
-    else:
-        # Uzun hata mesajı yerine kısa uyarı
-        st.error("⚠️ Sistem şu an çok yoğun. Lütfen kısa bir süre sonra tekrar deneyiniz.")
+                response = model.generate_content(f"{sys_instr}\n\nSoru: {prompt}")
+                if response.text:
+                    with st.chat_message("assistant", avatar="https://btu.edu.tr/dosyalar/btu/dosyalar/BTU_Logo_Yatay_TR_Siyah(1).png"):
+                        st.markdown(response.text)
+                    st.session_state.messages.append({"role": "assistant", "content": response.text})
+                    st.rerun()
+                    break
+            except: continue
