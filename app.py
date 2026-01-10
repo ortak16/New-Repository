@@ -2,92 +2,118 @@ import streamlit as st
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 
-# --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Hızlı Asistan", layout="centered")
-st.title("⚡ Hızlı Bilgi Asistanı")
+# --- 1. SAYFA AYARLARI ---
+st.set_page_config(page_title="BTÜ Öğrenci İşleri Asistanı", layout="centered")
 
-# --- 1. API KURULUMU ---
+# Manage App ve diğer Streamlit öğelerini gizle (CSS ile)
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("🤖 BTÜ Öğrenci İşleri Asistanı")
+
+# --- 2. API KURULUMU ---
 try:
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
         genai.configure(api_key=api_key)
     else:
-        st.error("⚠️ API Anahtarı bulunamadı! Secrets kısmını kontrol edin.")
+        st.error("⚠️ API Anahtarı bulunamadı!")
         st.stop()
 except Exception as e:
     st.error(f"Bağlantı Hatası: {e}")
     st.stop()
 
-# --- 2. FONKSİYONLAR ---
-def get_pdf_text(pdf_file):
+# --- 3. PDF OKUMA VE BAĞLAM ---
+@st.cache_data # PDF'i her seferinde okuyup yavaşlatmaması için önbelleğe alıyoruz
+def get_pdf_text(pdf_file_path):
     text = ""
     try:
-        pdf_reader = PdfReader(pdf_file)
-        for page in pdf_reader.pages:
-            content = page.extract_text()
-            if content: text += content
+        with open(pdf_file_path, "rb") as f:
+            pdf_reader = PdfReader(f)
+            for page in pdf_reader.pages:
+                content = page.extract_text()
+                if content: text += content
         return text
-    except Exception as e:
-        return f"PDF hatası: {e}"
+    except:
+        return ""
 
-# --- 3. PDF YÜKLEME ---
-context = ""
-try:
-    with open("bilgiler.pdf", "rb") as f:
-        context = get_pdf_text(f)
-except FileNotFoundError:
-    st.info("ℹ️ Bilgi: PDF dosyası bulunamadı, genel sohbet modu aktif.")
+context = get_pdf_text("bilgiler.pdf")
 
-# --- 4. SOHBET GEÇMİŞİ ---
+# --- 4. SOHBET GEÇMİŞİ VE ÖNERİLER ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Karşılama mesajı ve öneri butonları
+if not st.session_state.messages:
+    with st.chat_message("assistant"):
+        st.write("Merhaba! Ben BTÜ Öğrenci İşleri Asistanıyım. Size nasıl yardımcı olabilirim?")
+        st.write("Sıkça sorulan bazı sorular:")
+        
+        # Öneri Butonları
+        c1, c2 = st.columns(2)
+        if c1.button("📑 Bölümümde ders açmak istiyorum?"):
+            st.session_state.pending_prompt = "Bölümümde ders açmak istiyorum, ne yapmalıyım?"
+        if c2.button("📅 Kısa sınav tarihlerini öğrenme?"):
+            st.session_state.pending_prompt = "Kısa sınav tarihimi nasıl öğrenebilirim?"
+        
+        c3, c4 = st.columns(2)
+        if c3.button("🎓 Mezuniyet şartları neler?"):
+            st.session_state.pending_prompt = "Mezuniyet şartları nelerdir?"
+        if c4.button("🌍 Genel bir soru sor"):
+            st.session_state.pending_prompt = "Merhaba, genel bir sorum var."
+
+# Eski mesajları ekrana bas
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.write(message["content"])
+        st.markdown(message["content"])
 
 # --- 5. SOHBET MANTIĞI ---
-if prompt := st.chat_input("Sorunuzu buraya yazın..."):
-    # Kullanıcı mesajını kaydet ve ekrana yaz
+# Eğer butonla bir soru geldiyse veya kullanıcı yazdıysa
+prompt = st.chat_input("Sorunuzu buraya yazın...")
+if hasattr(st.session_state, 'pending_prompt'):
+    prompt = st.session_state.pending_prompt
+    del st.session_state.pending_prompt
+
+if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.write(prompt)
+        st.markdown(prompt)
 
-    response_text = ""
-    
-    # Modeller
-    selected_models = ['models/gemini-2.0-flash', 'models/gemini-flash-latest']
-
-    with st.spinner("Yazıyor..."):
-        # Bağlamı al
-        limited_context = context[:30000] if context else ""
+    with st.spinner("Düşünüyorum..."):
+        # Sistem Talimatı: Hem PDF'i hem genel bilgiyi kullanacak şekilde revize edildi
+        system_instruction = f"""
+        Sen Bursa Teknik Üniversitesi (BTÜ) Öğrenci İşleri Daire Başkanlığı için özelleşmiş bir asistansın.
         
-        # --- Robotik cevapları engelleyen 'System Instruction' ---
-        system_instruction = """
-        Sen yardımsever bir asistansın.
-        Verilen bilgilere dayanarak kullanıcının sorusunu cevapla.
-        ÖNEMLİ KURAL: "Sağlanan bağlama göre", "Metne göre", "Dokümanda belirtildiği gibi" gibi giriş cümlelerini ASLA kullanma.
-        Sanki bu bilgileri ezbere biliyormuşsun gibi doğrudan ve doğal bir şekilde cevap ver.
+        KURALLAR:
+        1. Eğer soru kurumun iç işleyişi (ders açma, sınavlar, yönetmelik vb.) ile ilgiliyse önce şu bilgilere bak: {context[:25000]}
+        2. Eğer soru genel kültür, tarih, teknoloji veya BTÜ dışı bir konuysa kendi genel bilgilerini kullanarak cevap ver.
+        3. Cevapların doğal olsun. ASLA "belgelere göre", "bağlamda yazdığı gibi" deme. 
+        4. Samimi ama resmi bir dil kullan (BTÜ personeli gibi).
+        5. Eğer PDF'te bilgi yoksa ve konu BTÜ ile ilgiliyse 'Bu konuda detaylı bilgi için odb.btu.edu.tr adresini ziyaret edebilir veya ilgili birimle iletişime geçebilirsiniz' de.
         """
-        
-        full_prompt = f"{system_instruction}\n\nBilgiler: {limited_context}\n\nSoru: {prompt}"
 
-        # Modelleri dene
+        selected_models = ['models/gemini-2.0-flash', 'models/gemini-1.5-flash-latest']
+        response_text = ""
+
         for m_name in selected_models:
             try:
                 model = genai.GenerativeModel(m_name)
-                response = model.generate_content(full_prompt)
-                
+                response = model.generate_content(f"{system_instruction}\n\nKullanıcı Sorusu: {prompt}")
                 if response and response.text:
                     response_text = response.text
-                    break 
-            except Exception:
+                    break
+            except:
                 continue
 
-    # Sonuç Yazdırma
     if response_text:
         with st.chat_message("assistant"):
-            st.write(response_text)
+            st.markdown(response_text)
         st.session_state.messages.append({"role": "assistant", "content": response_text})
-    else:
-        st.error("⚠️ Bağlantı hatası. Tekrar deneyin.")
+        # Sayfayı butonların gitmesi için yenile
+        st.rerun()
