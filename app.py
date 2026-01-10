@@ -52,7 +52,7 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
         st.markdown(prompt)
 
     
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-2.0-flash')
     full_query = f"Bağlam: {context}\n\nSoru: {prompt}\n\nLütfen sadece yukarıdaki bağlama göre cevap ver."
     
     response = model.generate_content(full_query)
@@ -61,6 +61,7 @@ if prompt := st.chat_input("Sorunuzu buraya yazın..."):
         st.markdown(response.text)
 
     st.session_state.messages.append({"role": "assistant", "content": response.text})
+
 
 
 
