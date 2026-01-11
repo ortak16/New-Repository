@@ -93,7 +93,7 @@ else:
 @st.cache_resource
 def get_model():
     return genai.GenerativeModel(
-        model_name="gemini-embedding-1.0",
+        model_name="gemini-3-flash",
         system_instruction=final_instruction
     )
 
@@ -168,5 +168,6 @@ if len(st.session_state.messages) == 0:
         if st.button("Eleştirel Düşünme Yöntemleri/Yapay Zeka Dersleri"):
             st.session_state.pending_prompt = "Eleştirel Düşünme Yöntemleri/Yapay Zeka Derslerini sisteminizde göremiyorum?"
             st.rerun()
+
 
 
