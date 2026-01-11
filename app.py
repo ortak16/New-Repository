@@ -36,14 +36,13 @@ header, footer, .stDeployButton, [data-testid="stStatusWidget"], button[title="V
 }
 
 /* --- LOGO KÜÇÜLTME AYARI --- */
-/* Avatar boyutunu 32px'e sabitliyoruz */
 [data-testid="stChatMessageAvatar"] {
-    width: 32px !important;
-    height: 32px !important;
+    width: 35px !important;
+    height: 35px !important;
 }
 [data-testid="stChatMessageAvatar"] img {
-    width: 32px !important;
-    height: 32px !important;
+    width: 35px !important;
+    height: 35px !important;
     object-fit: contain;
 }
 </style>
@@ -69,8 +68,6 @@ def load_pdf_context():
                 extracted = page.extract_text()
                 if extracted:
                     text += extracted + "\n"
-    except FileNotFoundError:
-        return None
     except Exception:
         return ""
     return text
@@ -102,9 +99,8 @@ else:
 
 @st.cache_resource
 def get_model():
-    # BURASI ÇOK ÖNEMLİ:
-    # 'gemini-flash-latest' yerine 'gemini-1.5-flash' kullanıyoruz.
-    # 1.5 sürümünün günlük kotası 1500 mesajdır (2.5 sürümü sadece 20 mesaj).
+    # requirements.txt güncellendiği için artık bu model HATASIZ çalışır.
+    # Bu modelin kotası 1500 mesajdır.
     return genai.GenerativeModel(
         model_name="gemini-1.5-flash", 
         system_instruction=final_instruction
@@ -119,18 +115,13 @@ model = get_model()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Logolar
 bot_avatar = "https://depo.btu.edu.tr/img/sayfa//1691132554_284ffd9ee8d6a4286478.png"
 user_avatar = "👤"
 
-# Ekrana Yazdırma
 for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        with st.chat_message("user", avatar=user_avatar):
-            st.markdown(msg["content"])
-    else:
-        with st.chat_message("assistant", avatar=bot_avatar):
-            st.markdown(msg["content"])
+    role_avatar = user_avatar if msg["role"] == "user" else bot_avatar
+    with st.chat_message(msg["role"], avatar=role_avatar):
+        st.markdown(msg["content"])
 
 # ---------------------------------------------------------
 # 5. İLETİŞİM DÖNGÜSÜ
@@ -138,22 +129,19 @@ for msg in st.session_state.messages:
 
 prompt = st.chat_input("Sorunuzu buraya yazın...")
 
-# Buton tıklanmışsa onu prompt olarak al
 if "pending_prompt" in st.session_state and st.session_state.pending_prompt:
     prompt = st.session_state.pending_prompt
     del st.session_state.pending_prompt
 
 if prompt:
-    # 1. Kullanıcı mesajını göster
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar=user_avatar):
         st.markdown(prompt)
 
-    # 2. Asistan cevap versin
     with st.chat_message("assistant", avatar=bot_avatar):
         with st.spinner("Yazıyor..."):
             try:
-                # Geçmiş konuşmaları hafıza olarak veriyoruz
+                # Hafızayı yönetiyoruz
                 history_for_model = [
                     {"role": "user" if m["role"] == "user" else "model", "parts": [m["content"]]}
                     for m in st.session_state.messages[:-1]
@@ -163,16 +151,15 @@ if prompt:
                 response = chat.send_message(prompt)
                 
                 if response and response.text:
-                    bot_reply = response.text
-                    st.markdown(bot_reply)
-                    st.session_state.messages.append({"role": "assistant", "content": bot_reply})
-                else:
-                    st.warning("Cevap alınamadı.")
+                    st.markdown(response.text)
+                    st.session_state.messages.append({"role": "assistant", "content": response.text})
             
             except Exception as e:
-                # Kota hatası olursa kullanıcıya anlaşılır mesaj göster
+                # Olası bir kota aşımı veya model hatasında kullanıcıyı bilgilendir
                 if "429" in str(e):
-                    st.error("⚠️ Çok hızlı işlem yaptınız, lütfen 30 saniye bekleyip tekrar deneyin.")
+                    st.error("⚠️ Sistem şu an çok yoğun, lütfen 1 dakika sonra tekrar dene.")
+                elif "404" in str(e):
+                    st.error("⚠️ Model bulunamadı. Lütfen requirements.txt dosyasını güncellediğinden emin ol.")
                 else:
                     st.error(f"Hata: {e}")
 
