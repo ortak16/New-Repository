@@ -110,7 +110,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 
-bot_avatar = "https://depo.btu.edu.tr/img/sayfa//1691132554_284ffd9ee8d6a4286478.png"
+bot_avatar = "https://btu.edu.tr/assets/static/images/btu-logo-default.png"
 user_avatar = "👤"
 
 
@@ -181,3 +181,4 @@ if len(st.session_state.messages) == 0:
         if st.button("Eleştirel Düşünme Yöntemleri/Yapay Zeka Dersleri"):
             st.session_state.pending_prompt = "Eleştirel Düşünme Yöntemleri/Yapay Zeka Derslerini sisteminizde göremiyorum?"
             st.rerun()
+
