@@ -2,40 +2,34 @@ import streamlit as st
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 
-# ---------------------------------------------------------
-# 1. AYARLAR VE TASARIM
-# ---------------------------------------------------------
-st.set_page_config(page_title="BTÜ Asistanı", layout="centered")
+st.set_page_config(page_title="BTÜ ODB Asistanı", layout="centered")
 
 st.markdown("""
 <style>
-/* Gereksiz başlık ve footer'ı gizle */
+/* Gereksiz öğeleri gizle */
 header, footer, .stDeployButton, [data-testid="stStatusWidget"], button[title="View fullscreen"] {
     display: none !important;
 }
-
-/* Mesaj kutularının tasarımı */
+/* Sohbet balonları tasarımı */
 [data-testid="stChatMessage"] {
-    border-radius: 12px;
+    border-radius: 15px;
     margin-bottom: 10px;
     padding: 10px;
 }
-
-/* Asistan Mesajı Rengi */
+/* Asistan mesajı */
 [data-testid="stChatMessage"]:nth-child(odd) {
-    background-color: #f9f9f9;
-    border-left: 3px solid #d32f2f;
+    background-color: #f8f9fa;
+    border-left: 4px solid #d32f2f;
 }
-
-/* Kullanıcı Mesajı Rengi */
+/* Kullanıcı mesajı */
 [data-testid="stChatMessage"]:nth-child(even) {
-    background-color: #eef6fc;
-    border-right: 3px solid #007bff;
+    background-color: #e3f2fd;
+    border-right: 4px solid #007bff;
     flex-direction: row-reverse;
     text-align: right;
 }
-
-/* --- LOGO KÜÇÜLTME AYARI --- */
+/* --- LOGO BOYUTU AYARI (YENİ) --- */
+/* Avatar kutusunu ve içindeki resmi küçült */
 [data-testid="stChatMessageAvatar"] {
     width: 35px !important;
     height: 35px !important;
@@ -48,14 +42,10 @@ header, footer, .stDeployButton, [data-testid="stStatusWidget"], button[title="V
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# 2. API VE PDF İŞLEMLERİ
-# ---------------------------------------------------------
-
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("API Anahtarı bulunamadı.")
+    st.error("Lütfen daha sonra deneyiniz.")
     st.stop()
 
 @st.cache_data
@@ -68,64 +58,64 @@ def load_pdf_context():
                 extracted = page.extract_text()
                 if extracted:
                     text += extracted + "\n"
+    except FileNotFoundError:
+        return None
     except Exception:
+        st.error("Lütfen daha sonra deneyiniz.")
         return ""
     return text
 
 pdf_context = load_pdf_context()
 
-# ---------------------------------------------------------
-# 3. YAPAY ZEKA KİŞİLİĞİ (PROMPT)
-# ---------------------------------------------------------
-
 base_instruction = """
-Sen Bursa Teknik Üniversitesi (BTÜ) Öğrenci İşleri asistanısın.
+Sen Bursa Teknik Üniversitesi (BTÜ) Ortak Dersler Bölümü asistanısın.
 
-KONUŞMA KURALLARIN:
-1. **Giriş:** Asla "Merhaba ben ODB asistanı" gibi uzun girişler yapma. Doğrudan konuya gir.
-2. **Ton:** Resmiyet kasma. Bir öğrenciye yardım eden bir arkadaş gibi samimi, net ve kısa cevaplar ver.
-3. **Bilgi:** - Önceliğin PDF verisi.
-   - PDF'de yoksa ve soru genel kültürse (Nasılsın, Python nedir vb.) cevapla.
-   - Okul prosedürüyle ilgili PDF'de bilgi yoksa uydurma, "Bu konuda net bilgi yok, duyurulara bakmalısın" de.
+ÇOK ÖNEMLİ KONUŞMA KURALLARI:
+1. **Tekrara Düşme:** Her mesajında "Merhaba ben ODB Asistanı" veya "Size yardımcı olmaktan memnuniyet duyarım" gibi giriş cümleleri KURMA. Bunu sadece ilk tanışmada söylemen yeterli.
+2. **Doğrudan Cevap:** Kullanıcı bir şey sorduğunda doğrudan cevaba gir. Sanki karşında arkadaşın varmış gibi konuş ama saygıyı koru.
+3. **Örnek:**
+   - Kötü Cevap: "Merhaba! Ben Asistan. Ders kaydı şöyle yapılır..."
+   - İyi Cevap: "Ders kaydını OBS sistemi üzerinden yapabilirsin. Tarihleri takvimden kontrol etmeyi unutma."
+4. **Bilgi Kaynağı:**
+   - Öncelikle sana verilen PDF verisini kullan.
+   - PDF'de olmayan genel konularda (Nasılsın, yapay zeka nedir vb.) kendi genel bilgini kullan.
+   - PDF'de olmayan çok teknik/resmi konularda uydurma, "Güncel duyuruları web sitesinden takip edebilirsin" de.
 
-Aşağıdaki PDF bilgisini kullan:
+Aşağıdaki PDF verisini referans al:
 """
 
 final_instruction = base_instruction
 if pdf_context:
-    final_instruction += f"\n--- PDF BAŞLA ---\n{pdf_context[:30000]}\n--- PDF BİTİR ---\n"
+    final_instruction += f"\n--- PDF İÇERİĞİ ---\n{pdf_context[:30000]}\n--- SON ---\n"
 else:
-    final_instruction += "\n(PDF yok, genel bilgini kullan.)\n"
+    final_instruction += "\n(Sistemde PDF yok, genel bilgini kullan.)\n"
 
 @st.cache_resource
 def get_model():
-    # requirements.txt güncellendiği için artık bu model HATASIZ çalışır.
-    # Bu modelin kotası 1500 mesajdır.
     return genai.GenerativeModel(
-        model_name="gemini-1.5-flash", 
+        model_name="gemini-flash-latest",
         system_instruction=final_instruction
     )
 
-model = get_model()
-
-# ---------------------------------------------------------
-# 4. SOHBET GEÇMİŞİ
-# ---------------------------------------------------------
+try:
+    model = get_model()
+except Exception:
+    st.error("Lütfen daha sonra deneyiniz.")
+    st.stop()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-bot_avatar = "https://depo.btu.edu.tr/img/sayfa//1691132554_284ffd9ee8d6a4286478.png"
+bot_avatar = "https://depo.btu.edu.tr/img/sayfa//1691131553_33a20881d67b04f54742.png"
 user_avatar = "👤"
 
 for msg in st.session_state.messages:
-    role_avatar = user_avatar if msg["role"] == "user" else bot_avatar
-    with st.chat_message(msg["role"], avatar=role_avatar):
-        st.markdown(msg["content"])
-
-# ---------------------------------------------------------
-# 5. İLETİŞİM DÖNGÜSÜ
-# ---------------------------------------------------------
+    if msg["role"] == "user":
+        with st.chat_message("user", avatar=user_avatar):
+            st.markdown(msg["content"])
+    else:
+        with st.chat_message("assistant", avatar=bot_avatar):
+            st.markdown(msg["content"])
 
 prompt = st.chat_input("Sorunuzu buraya yazın...")
 
@@ -139,46 +129,42 @@ if prompt:
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar=bot_avatar):
-        with st.spinner("Yazıyor..."):
+        with st.spinner("Yazıyor..."): 
             try:
-                # Hafızayı yönetiyoruz
-                history_for_model = [
+                history = [
                     {"role": "user" if m["role"] == "user" else "model", "parts": [m["content"]]}
-                    for m in st.session_state.messages[:-1]
+                    for m in st.session_state.messages[:-1] 
                 ]
                 
-                chat = model.start_chat(history=history_for_model)
+                chat = model.start_chat(history=history)
                 response = chat.send_message(prompt)
                 
                 if response and response.text:
-                    st.markdown(response.text)
-                    st.session_state.messages.append({"role": "assistant", "content": response.text})
-            
-            except Exception as e:
-                # Olası bir kota aşımı veya model hatasında kullanıcıyı bilgilendir
-                if "429" in str(e):
-                    st.error("⚠️ Sistem şu an çok yoğun, lütfen 1 dakika sonra tekrar dene.")
-                elif "404" in str(e):
-                    st.error("⚠️ Model bulunamadı. Lütfen requirements.txt dosyasını güncellediğinden emin ol.")
+                    response_text = response.text
+                    st.markdown(response_text)
+                    st.session_state.messages.append({"role": "assistant", "content": response_text})
                 else:
-                    st.error(f"Hata: {e}")
+                    st.warning("Lütfen daha sonra deneyiniz.")
+            
+            except Exception:
+                st.error("Lütfen daha sonra deneyiniz.")
 
-# ---------------------------------------------------------
-# 6. BAŞLANGIÇ EKRANI
-# ---------------------------------------------------------
 if len(st.session_state.messages) == 0:
-    st.info("👋 Selam! BTÜ hakkında merak ettiklerini sorabilirsin.")
+    st.info("👋 Selam! BTÜ Ortak Dersler Bölümü hakkında bana soru sorabilirsin.")
     
     col1, col2, col3 = st.columns(3)
+    
     with col1:
-        if st.button("📝 Ders Kaydı"):
+        if st.button("📝 Sosyal Seçmeli Dersler"):
             st.session_state.pending_prompt = "Ders kaydı nasıl yapılır?"
             st.rerun()
+            
     with col2:
-        if st.button("📅 Sınavlar"):
-            st.session_state.pending_prompt = "Sınav takvimi ne zaman?"
+        if st.button("📅 Akademik Takvim"):
+            st.session_state.pending_prompt = "Sınav tarihleri ne zaman?"
             st.rerun()
+
     with col3:
-        if st.button("🎓 Staj"):
-            st.session_state.pending_prompt = "Staj başvurusu nasıl olur?"
+        if st.button("Eleştirel Düşünme Yöntemleri/Yapay Zeka Dersleri"):
+            st.session_state.pending_prompt = "Eleştirel Düşünme Yöntemleri/Yapay Zeka Derslerini sisteminizde göremiyorum?"
             st.rerun()
